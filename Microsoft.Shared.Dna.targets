@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CodeAnalysisDictionary Include="$(MSBuildThisFileDirectory)Microsoft.Shared.Dna.Dictionary.xml">
+      <Visible>false</Visible>
+    </CodeAnalysisDictionary>
+  </ItemGroup>
+  <ItemDefinitionGroup>
+    <Package />
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <AvailableItemName Include="Package" />
+  </ItemGroup>
+  <PropertyGroup>
+    <BuildDependsOn>$(BuildDependsOn);BuildNuSpec;</BuildDependsOn>
+  </PropertyGroup>
+  <Target Name="NuGetProperties">
+    <PropertyGroup>
+      <NonInteractiveSwitch Condition=" '$(VisualStudioVersion)' != '' And '$(OS)' == 'Windows_NT' ">-NonInteractive</NonInteractiveSwitch>
+      <NuGetExePath Condition=" '$(NuGetExePath)' == '' ">$(MSBuildThisFileDirectory).tools\NuGet.exe</NuGetExePath>
+      <PackageOutputDir Condition=" '$(PackageOutputDir)' == '' And '$(Configuration)' == 'Release' ">$(MSBuildThisFileDirectory)Drop</PackageOutputDir>
+      <PackageOutputDir Condition=" '$(PackageOutputDir)' == '' ">$(TargetDir.Trim('\\'))</PackageOutputDir>
+    </PropertyGroup>
+  </Target>
+  <Target Name="BuildNuSpec" DependsOnTargets="NuGetProperties" Inputs="@(Package)" Outputs="@(Package->'$(PackageOutputDir)\%(Filename).nupkg')">
+    <PropertyGroup>
+      <BuildNuSpecCommand>$(MSBuildThisFileDirectory).tools\NuGet.exe pack "%(Package.FullPath)" -Properties "Configuration=$(Configuration);Platform=$(Platform)" $(NonInteractiveSwitch) -OutputDirectory "$(PackageOutputDir)"</BuildNuSpecCommand>
+    </PropertyGroup>
+    <MakeDir Directories="$(PackageOutputDir)" Condition=" !Exists('$(PackageOutputDir)') "/>
+    <Exec Command="$(BuildNuSpecCommand)" Condition=" '$(OS)' != 'Windows_NT' " />
+    <Exec Command="$(BuildNuSpecCommand)" LogStandardErrorAsError="true" Condition=" '$(OS)' == 'Windows_NT' " />
+  </Target>
+</Project>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<package>
+  <metadata>
+    <id>Microsoft.Shared.Dna.Json</id>
+    <version>2.0.0</version>
+    <title>Windows Data and Analytics Shared Code - JSON Processing</title>
+    <authors>Microsoft,microsoft-shared-dna</authors>
+    <owners>Microsoft,microsoft-shared-dna</owners>
+    <description>Are you doing simple read and write tasks with JSON.NET (or even System.Runtime.Serialization.Json)? Do you want to partially process your JSON payload? Are you running it in a tight loop? Are you wondering why there's so much pressure on the garbage collector? Do you want something even faster? If so, then this package might be right for you.</description>
+    <summary>Windows Data and Analytics shared code for reading and writing JSON in big data applications.</summary>
+    <projectUrl>https://github.com/Microsoft/Microsoft.Shared.Dna.Json</projectUrl>
+    <licenseUrl>https://github.com/Microsoft/Microsoft.Shared.Dna.Json/blob/master/LICENSE.txt</licenseUrl>
+    <copyright>Microsoft Corporation</copyright>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <tags>microsoft telemetry map-reduce big data json</tags>
+    <developmentDependency>true</developmentDependency>
+    <dependencies>
+      <dependency id="Microsoft.Shared.Dna.Text" version="2.0.0" />
+    </dependencies>
+    <frameworkAssemblies>
+      <frameworkAssembly assemblyName="System" />
+    </frameworkAssemblies>
+  </metadata>
+  <files>
+    <file src="JsonBuilder.cs" target="content\net40\Microsoft.Shared.Dna" />
+    <file src="JsonConstants.cs" target="content\net40\Microsoft.Shared.Dna" />
+    <file src="JsonParser.cs" target="content\net40\Microsoft.Shared.Dna" />
+    <file src="JsonTokenTypeExtensions.cs" target="content\net40\Microsoft.Shared.Dna" />
+  </files>
+</package>
