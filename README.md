@@ -28,7 +28,7 @@ The package is available on [nuget.org](http://www.nuget.org/packages/Microsoft.
 
 How do I build it?
 ------------------
-If you have Visual Studio 2015 installed, open an MSBuild command prompt and run:
+If you have Visual Studio 2015 installed, open a "Developer Command Prompt for VS2015" (not an MSBuild command prompt) and run:
 
     build.cmd
 
