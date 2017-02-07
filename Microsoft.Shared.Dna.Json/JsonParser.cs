@@ -1276,44 +1276,53 @@ namespace Microsoft.Shared.Dna.Json
             int first = this.TokenSegment.Offset;
             int last = first + this.TokenSegment.Count;
             byte digit = default(byte);
-            long sign = 1;
             fixed (char* payloadPointer = this.TokenSegment.String)
             {
                 char* c = payloadPointer + first;
                 if (*c == JsonConstants.NegativeSign)
                 {
-                    sign = -1;
-                    first++;
-                }
-
-                for (int i = first; i < last; i++)
-                {
-                    c = payloadPointer + i;
-                    if (JsonParser.TryConvertDecimal(*c, out digit))
+                    for (int i = first + 1; i < last; i++)
                     {
-                        try
+                        c = payloadPointer + i;
+                        if (JsonParser.TryConvertDecimal(*c, out digit))
                         {
-                            accumulator = checked((accumulator * JsonConstants.DecimalRadix) + digit);
+                            try
+                            {
+                                accumulator = checked((accumulator * JsonConstants.DecimalRadix) - digit);
+                            }
+                            catch (OverflowException)
+                            {
+                                return false;
+                            }
                         }
-                        catch (OverflowException)
+                        else
                         {
                             return false;
                         }
                     }
-                    else
+                }
+                else
+                {
+                    for (int i = first; i < last; i++)
                     {
-                        return false;
+                        c = payloadPointer + i;
+                        if (JsonParser.TryConvertDecimal(*c, out digit))
+                        {
+                            try
+                            {
+                                accumulator = checked((accumulator * JsonConstants.DecimalRadix) + digit);
+                            }
+                            catch (OverflowException)
+                            {
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            return false;
+                        }
                     }
                 }
-            }
-
-            try
-            {
-                accumulator = sign * accumulator;
-            }
-            catch (OverflowException)
-            {
-                return false;
             }
 
             value = accumulator;

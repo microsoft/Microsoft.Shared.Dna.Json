@@ -354,6 +354,11 @@ namespace Microsoft.Shared.Dna.Json.Test
             Assert.IsTrue(target.Next());
             AssertToken.IsValue(long.MaxValue, payload, 0, payload.Length, target);
             AssertToken.IsComplete(payload, target);
+            payload = long.MinValue.ToString(CultureInfo.InvariantCulture);
+            target.Reset(payload);
+            Assert.IsTrue(target.Next());
+            AssertToken.IsValue(long.MinValue, payload, 0, payload.Length, target);
+            AssertToken.IsComplete(payload, target);
         }
 
         /// <summary>
