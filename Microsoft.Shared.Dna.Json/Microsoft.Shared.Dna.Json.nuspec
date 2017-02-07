@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>Microsoft.Shared.Dna.Json</id>
-    <version>2.0.0</version>
+    <version>2.0.1</version>
     <title>Windows Data and Analytics Shared Code - JSON Processing</title>
     <authors>Microsoft,microsoft-shared-dna</authors>
     <owners>Microsoft,microsoft-shared-dna</owners>
