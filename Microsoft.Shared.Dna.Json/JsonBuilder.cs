@@ -1157,9 +1157,9 @@ namespace Microsoft.Shared.Dna.Json
                 int valueLength = value.Length;
                 for (int i = 0; i < valueLength; i++)
                 {
-                    char* c = valuePointer + i;
+                    char c = *(valuePointer + i);
                     string escaped = null;
-                    int asIndex = *c;
+                    int asIndex = c;
                     if (asIndex < JsonConstants.EscapeSequencesLength)
                     {
                         escaped = JsonConstants.EscapeSequences[asIndex];
@@ -1167,7 +1167,7 @@ namespace Microsoft.Shared.Dna.Json
 
                     if (escaped == null)
                     {
-                        if (this.builder.TryAppend(*c, reserve, rollback))
+                        if (this.builder.TryAppend(c, reserve, rollback))
                         {
                             continue;
                         }

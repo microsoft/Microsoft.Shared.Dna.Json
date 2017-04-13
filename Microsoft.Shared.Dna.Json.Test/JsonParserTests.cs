@@ -206,23 +206,103 @@ namespace Microsoft.Shared.Dna.Json.Test
         }
 
         /// <summary>
+        /// Next halts on broken Boolean.
+        /// </summary>
+        [TestMethod]
+        public void JsonParser_Next_Halts_On_Broken_Boolean()
+        {
+            string payload = "fairy";
+            JsonParser target = new JsonParser(payload);
+            Assert.IsFalse(target.Next());
+            AssertToken.Matches(JsonTokenType.Invalid, payload, 0, 0, target);
+            payload = "tale";
+            target.Reset(payload);
+            Assert.IsFalse(target.Next());
+            AssertToken.Matches(JsonTokenType.Invalid, payload, 0, 0, target);
+        }
+
+        /// <summary>
+        /// Next halts on broken null.
+        /// </summary>
+        [TestMethod]
+        public void JsonParser_Next_Halts_On_Broken_Null()
+        {
+            string payload = "nope";
+            JsonParser target = new JsonParser(payload);
+            Assert.IsFalse(target.Next());
+            AssertToken.Matches(JsonTokenType.Invalid, payload, 0, 0, target);
+        }
+
+        /// <summary>
         /// Next halts on empty element.
         /// </summary>
         [TestMethod]
         public void JsonParser_Next_Halts_On_Empty_Element()
         {
-            string payload = "{\"array\":[0z0]}";
+            string payload = "[,]";
+            JsonParser target = new JsonParser(payload);
+            Assert.IsTrue(target.Next());
+            AssertToken.Matches(JsonTokenType.BeginArray, payload, 0, 1, target);
+            Assert.IsFalse(target.Next());
+            AssertToken.Matches(JsonTokenType.Invalid, payload, 2, 0, target);
+        }
+
+        /// <summary>
+        /// Next halts on empty property.
+        /// </summary>
+        [TestMethod]
+        public void JsonParser_Next_Halts_On_Empty_Property()
+        {
+            string payload = "{\"first\":}";
             JsonParser target = new JsonParser(payload);
             Assert.IsTrue(target.Next());
             AssertToken.Matches(JsonTokenType.BeginObject, payload, 0, 1, target);
             Assert.IsTrue(target.Next());
-            AssertToken.IsProperty("array", payload, 1, 8, target);
-            Assert.IsTrue(target.Next());
-            AssertToken.Matches(JsonTokenType.BeginArray, payload, 9, 1, target);
-            Assert.IsTrue(target.Next());
-            AssertToken.IsValue(0L, payload, 10, 1, target);
+            AssertToken.IsProperty("first", payload, 1, 8, target);
             Assert.IsFalse(target.Next());
-            AssertToken.Matches(JsonTokenType.Invalid, payload, 11, 0, target);
+            AssertToken.Matches(JsonTokenType.Invalid, payload, 9, 0, target);
+        }
+
+        /// <summary>
+        /// Next halts on missing element separator.
+        /// </summary>
+        [TestMethod]
+        public void JsonParser_Next_Halts_On_Missing_Element_Separator()
+        {
+            string payload = "{\"first\":123 \"second\":456}";
+            JsonParser target = new JsonParser(payload);
+            Assert.IsTrue(target.Next());
+            AssertToken.Matches(JsonTokenType.BeginObject, payload, 0, 1, target);
+            Assert.IsTrue(target.Next());
+            AssertToken.IsProperty("first", payload, 1, 8, target);
+            Assert.IsTrue(target.Next());
+            AssertToken.Matches(JsonTokenType.Integer, payload, 9, 3, target);
+            Assert.IsFalse(target.Next());
+            AssertToken.Matches(JsonTokenType.Invalid, payload, 13, 0, target);
+        }
+
+        /// <summary>
+        /// Next halts on missing exponent.
+        /// </summary>
+        [TestMethod]
+        public void JsonParser_Next_Halts_On_Missing_Exponent()
+        {
+            string payload = "123e";
+            JsonParser target = new JsonParser(payload);
+            Assert.IsFalse(target.Next());
+            AssertToken.Matches(JsonTokenType.Invalid, payload, 0, 0, target);
+        }
+
+        /// <summary>
+        /// Next halts on missing exponent.
+        /// </summary>
+        [TestMethod]
+        public void JsonParser_Next_Halts_On_Missing_Fraction()
+        {
+            string payload = "123.";
+            JsonParser target = new JsonParser(payload);
+            Assert.IsFalse(target.Next());
+            AssertToken.Matches(JsonTokenType.Invalid, payload, 0, 0, target);
         }
 
         /// <summary>
@@ -407,6 +487,16 @@ namespace Microsoft.Shared.Dna.Json.Test
             target.Reset(payload);
             Assert.IsTrue(target.Next());
             AssertToken.IsValue(double.MaxValue, payload, 0, payload.Length, target);
+            AssertToken.IsComplete(payload, target);
+            payload = "123.456";
+            target.Reset(payload);
+            Assert.IsTrue(target.Next());
+            AssertToken.IsValue(123.456D, payload, 0, payload.Length, target);
+            AssertToken.IsComplete(payload, target);
+            payload = "12e34";
+            target.Reset(payload);
+            Assert.IsTrue(target.Next());
+            AssertToken.IsValue(12e34D, payload, 0, payload.Length, target);
             AssertToken.IsComplete(payload, target);
         }
 

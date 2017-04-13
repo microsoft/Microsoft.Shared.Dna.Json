@@ -58,6 +58,11 @@ namespace Microsoft.Shared.Dna.Json
         private Stack<Container> scope = null;
 
         /// <summary>
+        /// Truthfulness of the token. Currently used only to cache Boolean result.
+        /// </summary>
+        private bool truth = false;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="JsonParser"/> class.
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage(
@@ -232,29 +237,7 @@ namespace Microsoft.Shared.Dna.Json
                 return false;
             }
 
-            if (this.TokenSegment.Count == JsonConstants.TrueValueLength)
-            {
-                if (string.CompareOrdinal(this.TokenSegment.String, this.TokenSegment.Offset, JsonConstants.TrueValue, 0, JsonConstants.TrueValueLength) != 0)
-                {
-                    return false;
-                }
-
-                value = true;
-            }
-            else if (this.TokenSegment.Count == JsonConstants.FalseValueLength)
-            {
-                if (string.CompareOrdinal(this.TokenSegment.String, this.TokenSegment.Offset, JsonConstants.FalseValue, 0, JsonConstants.FalseValueLength) != 0)
-                {
-                    return false;
-                }
-
-                value = false;
-            }
-            else
-            {
-                return false;
-            }
-
+            value = this.truth;
             return true;
         }
 
@@ -512,6 +495,20 @@ namespace Microsoft.Shared.Dna.Json
         }
 
         /// <summary>
+        /// Determines if a character is insignificant whitespace.
+        /// </summary>
+        /// <param name="c">The character to evaluate.</param>
+        /// <returns>A value indicating whether or not the character is insignificant whitespace.</returns>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Microsoft.Performance",
+            "CA1811:AvoidUncalledPrivateCode",
+            Justification = "You don't have to use everything in an in-line code share.")]
+        private static bool IsJsonWhitespace(char c)
+        {
+            return c == JsonConstants.Space || c == JsonConstants.HorizontalTab || c == JsonConstants.CarriageReturn || c == JsonConstants.LineFeed;
+        }
+
+        /// <summary>
         /// Tries to convert a character to its decimal equivalent.
         /// </summary>
         /// <param name="character">The character to convert.</param>
@@ -686,6 +683,7 @@ namespace Microsoft.Shared.Dna.Json
         /// Skips past an element separator in an array or object.
         /// </summary>
         /// <param name="payloadPointer">A pointer to the payload.</param>
+        /// <param name="any">A value indicating whether or not any elements have been encountered inside the container.</param>
         /// <remarks>
         /// This method uses character pointer arithmetic to iterate over the string because
         /// it is significantly faster than using the string indexer.
@@ -694,11 +692,15 @@ namespace Microsoft.Shared.Dna.Json
             "Microsoft.Performance",
             "CA1811:AvoidUncalledPrivateCode",
             Justification = "You don't have to use everything in an in-line code share.")]
-        private unsafe void EatElementSeparator(char* payloadPointer)
+        private unsafe void EatElementSeparator(char* payloadPointer, bool any)
         {
             if (*(payloadPointer + this.position) == JsonConstants.ElementSeparator)
             {
                 this.position++;
+            }
+            else if (any)
+            {
+                this.CreateInvalidToken();
             }
         }
 
@@ -736,7 +738,7 @@ namespace Microsoft.Shared.Dna.Json
             Justification = "You don't have to use everything in an in-line code share.")]
         private unsafe void EatWhitespace(char* payloadPointer, ref int cursor)
         {
-            while (cursor < this.payloadLength && char.IsWhiteSpace(*(payloadPointer + cursor)))
+            while (cursor < this.payloadLength && JsonParser.IsJsonWhitespace(*(payloadPointer + cursor)))
             {
                 cursor++;
             }
@@ -760,9 +762,81 @@ namespace Microsoft.Shared.Dna.Json
             int result = cursor;
             fixed (char* payloadPointer = this.payload)
             {
-                while (result >= 0 && char.IsWhiteSpace(*(payloadPointer + result)))
+                while (result >= 0 && JsonParser.IsJsonWhitespace(*(payloadPointer + result)))
                 {
                     result--;
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Finds the end of a series of decimal digits.
+        /// </summary>
+        /// <param name="payloadPointer">A pointer to the payload.</param>
+        /// <param name="cursor">The starting point of the decimal digits.</param>
+        /// <returns>
+        /// The first non-decimal character seen or the original cursor if it is past the
+        /// end of the payload.
+        /// </returns>
+        /// <remarks>
+        /// This method uses character pointer arithmetic to iterate over the string because
+        /// it is significantly faster than using the string indexer.
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Microsoft.Performance",
+            "CA1811:AvoidUncalledPrivateCode",
+            Justification = "You don't have to use everything in an in-line code share.")]
+        private unsafe int EndOfDigits(char* payloadPointer, int cursor)
+        {
+            int result = cursor;
+            while (result < this.payloadLength)
+            {
+                char c = *(payloadPointer + result);
+                if (c >= JsonConstants.Zero && c <= JsonConstants.Nine)
+                {
+                    result++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Finds the end of a series of hexadecimal digits.
+        /// </summary>
+        /// <param name="payloadPointer">A pointer to the payload.</param>
+        /// <param name="cursor">The starting point of the hexadecimal digits.</param>
+        /// <returns>
+        /// The first non-hexadecimal character seen or the original cursor if it is past
+        /// the end of the payload.
+        /// </returns>
+        /// <remarks>
+        /// This method uses character pointer arithmetic to iterate over the string because
+        /// it is significantly faster than using the string indexer.
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Microsoft.Performance",
+            "CA1811:AvoidUncalledPrivateCode",
+            Justification = "You don't have to use everything in an in-line code share.")]
+        private unsafe int EndOfHexDigits(char* payloadPointer, int cursor)
+        {
+            int result = cursor;
+            while (result < this.payloadLength)
+            {
+                char c = *(payloadPointer + result);
+                if ((c >= JsonConstants.Zero && c <= JsonConstants.Nine) || (c >= JsonConstants.HexTenUppercase && c <= JsonConstants.HexFifteenUppercase) || (c >= JsonConstants.HexTenLowercase && c <= JsonConstants.HexFifteenLowercase))
+                {
+                    result++;
+                }
+                else
+                {
+                    break;
                 }
             }
 
@@ -788,7 +862,7 @@ namespace Microsoft.Shared.Dna.Json
             bool escaped = false;
             while (result < this.payloadLength)
             {
-                char* c = payloadPointer + result;
+                char c = *(payloadPointer + result);
                 result++;
                 if (escaped)
                 {
@@ -796,12 +870,12 @@ namespace Microsoft.Shared.Dna.Json
                 }
                 else
                 {
-                    if (*c == JsonConstants.StringEnclosure)
+                    if (c == JsonConstants.StringEnclosure)
                     {
                         return result;
                     }
 
-                    if (*c == JsonConstants.CharacterEscape)
+                    if (c == JsonConstants.CharacterEscape)
                     {
                         escaped = true;
                         this.decode = true;
@@ -869,6 +943,7 @@ namespace Microsoft.Shared.Dna.Json
         /// content being parsed in the current iteration.
         /// </summary>
         /// <param name="payloadPointer">A pointer to the payload.</param>
+        /// <param name="any">A value indicating whether or not any elements have been encountered inside the container.</param>
         /// <remarks>
         /// This method uses character pointer arithmetic to iterate over the string because
         /// it is significantly faster than using the string indexer.
@@ -877,7 +952,7 @@ namespace Microsoft.Shared.Dna.Json
             "Microsoft.Performance",
             "CA1811:AvoidUncalledPrivateCode",
             Justification = "You don't have to use everything in an in-line code share.")]
-        private unsafe void PrepareForClose(char* payloadPointer)
+        private unsafe void PrepareForClose(char* payloadPointer, bool any)
         {
             Container current = this.Current;
             this.EatWhitespace(payloadPointer);
@@ -895,24 +970,30 @@ namespace Microsoft.Shared.Dna.Json
                 return;
             }
 
-            char* c = payloadPointer + this.position;
+            char c = *(payloadPointer + this.position);
             switch (current.TokenType)
             {
                 case JsonTokenType.BeginArray:
-                    if (*c == JsonConstants.ArrayFooter)
+                    if (c == JsonConstants.ArrayFooter)
                     {
                         this.close = true;
                     }
+                    else
+                    {
+                        this.EatElementSeparator(payloadPointer, any);
+                    }
 
-                    this.EatElementSeparator(payloadPointer);
                     break;
                 case JsonTokenType.BeginObject:
-                    if (*c == JsonConstants.ObjectFooter)
+                    if (c == JsonConstants.ObjectFooter)
                     {
                         this.close = true;
                     }
+                    else
+                    {
+                        this.EatElementSeparator(payloadPointer, any);
+                    }
 
-                    this.EatElementSeparator(payloadPointer);
                     break;
                 case JsonTokenType.BeginProperty:
                     this.close = true;
@@ -961,8 +1042,8 @@ namespace Microsoft.Shared.Dna.Json
             if (cursor > 0)
             {
                 this.EatWhitespace(payloadPointer, ref cursor);
-                char* c = payloadPointer + cursor;
-                if (*c == JsonConstants.NameValueSeparator)
+                char c = *(payloadPointer + cursor);
+                if (c == JsonConstants.NameValueSeparator)
                 {
                     cursor++;
                     this.CreateToken(cursor - this.position, JsonTokenType.BeginProperty);
@@ -992,7 +1073,7 @@ namespace Microsoft.Shared.Dna.Json
             this.position = current.Offset;
             this.CreateToken(count, JsonTokenType.EndArray);
             this.close = false;
-            this.PrepareForClose(payloadPointer);
+            this.PrepareForClose(payloadPointer, true);
         }
 
         /// <summary>
@@ -1014,7 +1095,7 @@ namespace Microsoft.Shared.Dna.Json
             this.position = current.Offset;
             this.CreateToken(count, JsonTokenType.EndObject);
             this.close = false;
-            this.PrepareForClose(payloadPointer);
+            this.PrepareForClose(payloadPointer, true);
         }
 
         /// <summary>
@@ -1036,7 +1117,39 @@ namespace Microsoft.Shared.Dna.Json
             this.position = current.Offset;
             this.CreateToken(count, JsonTokenType.EndProperty);
             this.close = false;
-            this.PrepareForClose(payloadPointer);
+            this.PrepareForClose(payloadPointer, true);
+        }
+
+        /// <summary>
+        /// Reads the exponent part of a floating point number.
+        /// </summary>
+        /// <param name="payloadPointer">A pointer to the payload.</param>
+        /// <param name="cursor">The starting point of the exponent.</param>
+        /// <remarks>
+        /// This method uses character pointer arithmetic to iterate over the string because
+        /// it is significantly faster than using the string indexer.
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Microsoft.Performance",
+            "CA1811:AvoidUncalledPrivateCode",
+            Justification = "You don't have to use everything in an in-line code share.")]
+        private unsafe void ReadExponent(char* payloadPointer, int cursor)
+        {
+            char c = *(payloadPointer + cursor);
+            if (c == JsonConstants.PositiveSign || c == JsonConstants.NegativeSign)
+            {
+                cursor++;
+            }
+
+            int start = cursor;
+            cursor = this.EndOfDigits(payloadPointer, cursor);
+            if (start == cursor)
+            {
+                this.CreateInvalidToken();
+                return;
+            }
+
+            this.CreateToken(cursor - this.position, JsonTokenType.Float);
         }
 
         /// <summary>
@@ -1048,7 +1161,65 @@ namespace Microsoft.Shared.Dna.Json
             Justification = "You don't have to use everything in an in-line code share.")]
         private void ReadFalse()
         {
-            this.CreateToken(JsonConstants.FalseValueLength, JsonTokenType.Boolean);
+            if (string.CompareOrdinal(this.payload, this.position, JsonConstants.FalseValue, 0, JsonConstants.FalseValueLength) == 0)
+            {
+                this.CreateToken(JsonConstants.FalseValueLength, JsonTokenType.Boolean);
+                this.truth = false;
+            }
+            else
+            {
+                this.CreateInvalidToken();
+            }
+        }
+
+        /// <summary>
+        /// Reads the fractional part of a floating point number.
+        /// </summary>
+        /// <param name="payloadPointer">A pointer to the payload.</param>
+        /// <param name="cursor">The starting point of the fraction.</param>
+        /// <remarks>
+        /// This method uses character pointer arithmetic to iterate over the string because
+        /// it is significantly faster than using the string indexer.
+        /// </remarks>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Microsoft.Performance",
+            "CA1811:AvoidUncalledPrivateCode",
+            Justification = "You don't have to use everything in an in-line code share.")]
+        private unsafe void ReadFraction(char* payloadPointer, int cursor)
+        {
+            int start = cursor;
+            cursor = this.EndOfDigits(payloadPointer, cursor);
+            if (start == cursor)
+            {
+                this.CreateInvalidToken();
+                return;
+            }
+
+            char c = *(payloadPointer + cursor);
+            if (c == JsonConstants.ExponentLowercase || c == JsonConstants.ExponentUppercase)
+            {
+                this.ReadExponent(payloadPointer, cursor + 1);
+                return;
+            }
+
+            this.CreateToken(cursor - this.position, JsonTokenType.Float);
+        }
+
+        /// <summary>
+        /// Reads a hexadecimal number.
+        /// </summary>
+        /// <param name="payloadPointer">A pointer to the payload.</param>
+        /// <param name="cursor">The starting point of the hexadecimal digits.</param>
+        private unsafe void ReadHexNumber(char* payloadPointer, int cursor)
+        {
+            int start = cursor;
+            cursor = this.EndOfHexDigits(payloadPointer, cursor);
+            if (start == cursor)
+            {
+                this.CreateInvalidToken();
+            }
+
+            this.CreateToken(cursor - this.position, JsonTokenType.Integer);
         }
 
         /// <summary>
@@ -1085,90 +1256,47 @@ namespace Microsoft.Shared.Dna.Json
         private unsafe void ReadNumber(char* payloadPointer)
         {
             int cursor = this.position;
-            char* c = payloadPointer + cursor;
-            if (*c == JsonConstants.NegativeSign)
+            char c = *(payloadPointer + cursor);
+            if (c == JsonConstants.NegativeSign)
             {
                 cursor++;
             }
-
-            JsonTokenType type = JsonTokenType.Integer;
-            bool hasDigits = false;
-            bool isHex = false;
-            sbyte[] digits = JsonConstants.DecimalDigits;
-            int digitsLength = JsonConstants.DecimalDigitsLength;
-            while (cursor < this.payloadLength)
+            else if (c == JsonConstants.Zero)
             {
-                c = payloadPointer + cursor;
-                switch (*c)
+                int hexOffset = cursor + 1;
+                if (hexOffset < this.payloadLength)
                 {
-                    case JsonConstants.HexLowercase:
-                    case JsonConstants.HexUppercase:
-                        isHex = true;
-                        hasDigits = false;
-                        digits = JsonConstants.HexDigits;
-                        digitsLength = JsonConstants.HexDigitsLength;
-                        break;
-                    case JsonConstants.NegativeSign:
-                    case JsonConstants.PositiveSign:
-                        if (isHex)
-                        {
-                            this.CreateInvalidToken();
-                            return;
-                        }
-
-                        break;
-                    case JsonConstants.DecimalPoint:
-                        if (isHex)
-                        {
-                            this.CreateInvalidToken();
-                            return;
-                        }
-
-                        type = JsonTokenType.Float;
-                        break;
-                    case JsonConstants.ExponentLowercase:
-                    case JsonConstants.ExponentUppercase:
-                        if (!isHex)
-                        {
-                            type = JsonTokenType.Float;
-                        }
-
-                        break;
-                    default:
-                        int asIndex = *c;
-                        if (asIndex < digitsLength)
-                        {
-                            sbyte digit = digits[asIndex];
-                            if (digit >= 0)
-                            {
-                                hasDigits = true;
-                                break;
-                            }
-                        }
-
-                        if (hasDigits)
-                        {
-                            this.CreateToken(cursor - this.position, type);
-                        }
-                        else
-                        {
-                            this.CreateInvalidToken();
-                        }
-
+                    c = *(payloadPointer + hexOffset);
+                    if (c == JsonConstants.HexLowercase || c == JsonConstants.HexUppercase)
+                    {
+                        this.ReadHexNumber(payloadPointer, hexOffset + 1);
                         return;
+                    }
                 }
-
-                cursor++;
             }
 
-            if (hasDigits && this.Current.TokenType == JsonTokenType.None)
-            {
-                this.CreateToken(this.payloadLength - this.position, type);
-            }
-            else
+            int start = cursor;
+            cursor = this.EndOfDigits(payloadPointer, cursor);
+            if (start == cursor)
             {
                 this.CreateInvalidToken();
+                return;
             }
+
+            c = *(payloadPointer + cursor);
+            if (c == JsonConstants.DecimalPoint)
+            {
+                this.ReadFraction(payloadPointer, cursor + 1);
+                return;
+            }
+
+            if (c == JsonConstants.ExponentLowercase || c == JsonConstants.ExponentUppercase)
+            {
+                this.ReadExponent(payloadPointer, cursor + 1);
+                return;
+            }
+
+            this.CreateToken(cursor - this.position, JsonTokenType.Integer);
         }
 
         /// <summary>
@@ -1216,8 +1344,8 @@ namespace Microsoft.Shared.Dna.Json
                 return;
             }
 
-            char* c = payloadPointer + this.position;
-            switch (*c)
+            char c = *(payloadPointer + this.position);
+            switch (c)
             {
                 case JsonConstants.NullLeadCharacter:
                     this.ReadNull();
@@ -1244,7 +1372,7 @@ namespace Microsoft.Shared.Dna.Json
 
             if (this.TokenType != JsonTokenType.Invalid)
             {
-                this.PrepareForClose(payloadPointer);
+                this.PrepareForClose(payloadPointer, false);
             }
         }
 
@@ -1257,7 +1385,15 @@ namespace Microsoft.Shared.Dna.Json
             Justification = "You don't have to use everything in an in-line code share.")]
         private void ReadTrue()
         {
-            this.CreateToken(JsonConstants.TrueValueLength, JsonTokenType.Boolean);
+            if (string.CompareOrdinal(this.payload, this.position, JsonConstants.TrueValue, 0, JsonConstants.TrueValueLength) == 0)
+            {
+                this.CreateToken(JsonConstants.TrueValueLength, JsonTokenType.Boolean);
+                this.truth = true;
+            }
+            else
+            {
+                this.CreateInvalidToken();
+            }
         }
 
         /// <summary>
@@ -1278,13 +1414,13 @@ namespace Microsoft.Shared.Dna.Json
             byte digit = default(byte);
             fixed (char* payloadPointer = this.TokenSegment.String)
             {
-                char* c = payloadPointer + first;
-                if (*c == JsonConstants.NegativeSign)
+                char* cp = payloadPointer + first;
+                if (*cp == JsonConstants.NegativeSign)
                 {
                     for (int i = first + 1; i < last; i++)
                     {
-                        c = payloadPointer + i;
-                        if (JsonParser.TryConvertDecimal(*c, out digit))
+                        cp = payloadPointer + i;
+                        if (JsonParser.TryConvertDecimal(*cp, out digit))
                         {
                             try
                             {
@@ -1305,8 +1441,8 @@ namespace Microsoft.Shared.Dna.Json
                 {
                     for (int i = first; i < last; i++)
                     {
-                        c = payloadPointer + i;
-                        if (JsonParser.TryConvertDecimal(*c, out digit))
+                        cp = payloadPointer + i;
+                        if (JsonParser.TryConvertDecimal(*cp, out digit))
                         {
                             try
                             {
@@ -1352,12 +1488,12 @@ namespace Microsoft.Shared.Dna.Json
             bool isHex = false;
             fixed (char* payloadPointer = this.TokenSegment.String)
             {
-                char* c = payloadPointer + first;
-                if (first + 2 < last && *c == JsonConstants.Zero)
+                char* cp = payloadPointer + first;
+                if (first + 2 < last && *cp == JsonConstants.Zero)
                 {
                     first++;
-                    c = payloadPointer + first;
-                    isHex = *c == JsonConstants.HexLowercase || *c == JsonConstants.HexUppercase;
+                    cp = payloadPointer + first;
+                    isHex = *cp == JsonConstants.HexLowercase || *cp == JsonConstants.HexUppercase;
                 }
 
                 if (isHex)
@@ -1365,8 +1501,8 @@ namespace Microsoft.Shared.Dna.Json
                     first++;
                     for (int i = first; i < last; i++)
                     {
-                        c = payloadPointer + i;
-                        if (JsonParser.TryConvertHex(*c, out digit))
+                        cp = payloadPointer + i;
+                        if (JsonParser.TryConvertHex(*cp, out digit))
                         {
                             try
                             {
@@ -1387,8 +1523,8 @@ namespace Microsoft.Shared.Dna.Json
                 {
                     for (int i = first; i < last; i++)
                     {
-                        c = payloadPointer + i;
-                        if (JsonParser.TryConvertDecimal(*c, out digit))
+                        cp = payloadPointer + i;
+                        if (JsonParser.TryConvertDecimal(*cp, out digit))
                         {
                             try
                             {
@@ -1437,15 +1573,15 @@ namespace Microsoft.Shared.Dna.Json
             {
                 while (cursor < endOfSegment)
                 {
-                    char* c = payloadPointer + cursor;
-                    if (*c == JsonConstants.StringEnclosure)
+                    char c = *(payloadPointer + cursor);
+                    if (c == JsonConstants.StringEnclosure)
                     {
                         break;
                     }
 
-                    if (*c != JsonConstants.CharacterEscape)
+                    if (c != JsonConstants.CharacterEscape)
                     {
-                        if (this.decodeBuffer.TryAppend(*c, 0))
+                        if (this.decodeBuffer.TryAppend(c, 0))
                         {
                             cursor++;
                             continue;
@@ -1459,8 +1595,8 @@ namespace Microsoft.Shared.Dna.Json
                         return false;
                     }
 
-                    c = payloadPointer + cursor;
-                    int asIndex = *c;
+                    c = *(payloadPointer + cursor);
+                    int asIndex = c;
                     if (asIndex > JsonConstants.UnescapeSequencesLength)
                     {
                         return false;
