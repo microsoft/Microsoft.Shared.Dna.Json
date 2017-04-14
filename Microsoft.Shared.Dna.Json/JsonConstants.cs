@@ -33,6 +33,11 @@ namespace Microsoft.Shared.Dna.Json
         public const int BooleanValueLength = 5;
 
         /// <summary>
+        /// The carriage return character. One of the four insignificant whitespace characters.
+        /// </summary>
+        public const char CarriageReturn = '\x000A';
+
+        /// <summary>
         /// The escape character.
         /// </summary>
         public const char CharacterEscape = '\\';
@@ -91,6 +96,16 @@ namespace Microsoft.Shared.Dna.Json
         public const int FalseValueLength = 5;
 
         /// <summary>
+        /// The lower-case hexadecimal fifteen digit.
+        /// </summary>
+        public const char HexFifteenLowercase = 'f';
+
+        /// <summary>
+        /// The upper-case hexadecimal fifteen digit.
+        /// </summary>
+        public const char HexFifteenUppercase = 'F';
+
+        /// <summary>
         /// The lower-case hexadecimal indicator.
         /// </summary>
         public const char HexLowercase = 'x';
@@ -101,9 +116,29 @@ namespace Microsoft.Shared.Dna.Json
         public const byte HexRadix = 16;
 
         /// <summary>
+        /// The lower-case hexadecimal ten digit.
+        /// </summary>
+        public const char HexTenLowercase = 'a';
+
+        /// <summary>
+        /// The upper-case hexadecimal ten digit.
+        /// </summary>
+        public const char HexTenUppercase = 'A';
+
+        /// <summary>
         /// The upper-case hexadecimal indicator.
         /// </summary>
         public const char HexUppercase = 'X';
+
+        /// <summary>
+        /// The horizontal tab character. One of the four insignificant whitespace characters.
+        /// </summary>
+        public const char HorizontalTab = '\x0009';
+
+        /// <summary>
+        /// The line feed character. One of the four insignificant whitespace characters.
+        /// </summary>
+        public const char LineFeed = '\x000D';
 
         /// <summary>
         /// The name-value separator character.
@@ -114,6 +149,11 @@ namespace Microsoft.Shared.Dna.Json
         /// The negative sign character.
         /// </summary>
         public const char NegativeSign = '-';
+
+        /// <summary>
+        /// Then nine character.
+        /// </summary>
+        public const char Nine = '9';
 
         /// <summary>
         /// The first character of the null literal.
@@ -144,6 +184,11 @@ namespace Microsoft.Shared.Dna.Json
         /// The negative sign character.
         /// </summary>
         public const char PositiveSign = '+';
+
+        /// <summary>
+        /// The space character. One of the four insignificant whitespace characters.
+        /// </summary>
+        public const char Space = ' ';
 
         /// <summary>
         /// The string enclosure character.
