@@ -86,6 +86,11 @@ namespace Microsoft.Shared.Dna.Json
         Invalid = 4096,
 
         /// <summary>
+        /// Caller opted to attempt a bypass of invalid token.
+        /// </summary>
+        Bypass = 8192,
+
+        /// <summary>
         /// Any open container type - arrays, objects or properties.
         /// </summary>
         OpenContainer = BeginArray | BeginObject | BeginProperty,

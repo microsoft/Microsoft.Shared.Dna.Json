@@ -19,6 +19,30 @@ namespace Microsoft.Shared.Dna.Json.Test
     public class JsonParserTests
     {
         /// <summary>
+        /// Bypass skips superfluous comma.
+        /// </summary>
+        [TestMethod]
+        public void JsonParser_Bypass_Skips_Superfluous_Comma()
+        {
+            string payload = "{\"test\":true,}";
+            JsonParser target = new JsonParser(payload);
+            Assert.IsTrue(target.Next());
+            AssertToken.Matches(JsonTokenType.BeginObject, payload, 0, 1, target);
+            Assert.IsTrue(target.Next());
+            AssertToken.IsProperty("test", payload, 1, 7, target);
+            Assert.IsTrue(target.Next());
+            AssertToken.IsValue(true, payload, 8, 4, target);
+            Assert.IsTrue(target.Next());
+            AssertToken.Matches(JsonTokenType.EndProperty, payload, 1, 11, target);
+            Assert.IsFalse(target.Next());
+            Assert.AreEqual(JsonTokenType.Invalid, target.TokenType);
+            target.Bypass();
+            Assert.IsTrue(target.Next());
+            AssertToken.Matches(JsonTokenType.EndObject, payload, 0, 14, target);
+            AssertToken.IsComplete(payload, target);
+        }
+
+        /// <summary>
         /// Constructor allows null payload.
         /// </summary>
         [TestMethod]
