@@ -26,5 +26,6 @@
     <file src="JsonConstants.cs" target="content\net40\Microsoft.Shared.Dna" />
     <file src="JsonParser.cs" target="content\net40\Microsoft.Shared.Dna" />
     <file src="JsonTokenTypeExtensions.cs" target="content\net40\Microsoft.Shared.Dna" />
+    <file src="..\LICENSE.txt" target="content\net40" />
   </files>
 </package>
