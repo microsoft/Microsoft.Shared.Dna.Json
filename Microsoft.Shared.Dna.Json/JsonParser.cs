@@ -176,6 +176,10 @@ namespace Microsoft.Shared.Dna.Json
         /// <summary>
         /// Attempts to bypass an invalid token so that parsing may continue.
         /// </summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Microsoft.Performance",
+            "CA1811:AvoidUncalledPrivateCode",
+            Justification = "You don't have to use everything in an in-line code share.")]
         public void Bypass()
         {
             if (this.tokenType == JsonTokenType.Invalid)
