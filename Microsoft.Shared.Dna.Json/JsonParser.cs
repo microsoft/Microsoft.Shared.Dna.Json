@@ -58,6 +58,21 @@ namespace Microsoft.Shared.Dna.Json
         private Stack<Container> scope = null;
 
         /// <summary>
+        /// The character count of the token from the offset.
+        /// </summary>
+        private int segmentCount = 0;
+
+        /// <summary>
+        /// The offset of the token segment.
+        /// </summary>
+        private int segmentOffset = 0;
+
+        /// <summary>
+        /// Type of the current token.
+        /// </summary>
+        private JsonTokenType tokenType = JsonTokenType.None;
+
+        /// <summary>
         /// Truthfulness of the token. Currently used only to cache Boolean result.
         /// </summary>
         private bool truth = false;
@@ -120,7 +135,13 @@ namespace Microsoft.Shared.Dna.Json
             "Microsoft.Performance",
             "CA1811:AvoidUncalledPrivateCode",
             Justification = "You don't have to use everything in an in-line code share.")]
-        public StringSegment TokenSegment { get; private set; }
+        public StringSegment TokenSegment
+        {
+            get
+            {
+                return new StringSegment(this.payload, this.segmentOffset, this.segmentCount);
+            }
+        }
 
         /// <summary>
         /// Gets the type of the current token.
@@ -129,7 +150,13 @@ namespace Microsoft.Shared.Dna.Json
             "Microsoft.Performance",
             "CA1811:AvoidUncalledPrivateCode",
             Justification = "You don't have to use everything in an in-line code share.")]
-        public JsonTokenType TokenType { get; private set; }
+        public JsonTokenType TokenType
+        {
+            get
+            {
+                return this.tokenType;
+            }
+        }
 
         /// <summary>
         /// Gets the current token scope.
@@ -143,6 +170,30 @@ namespace Microsoft.Shared.Dna.Json
             get
             {
                 return this.scope.Peek();
+            }
+        }
+
+        /// <summary>
+        /// Attempts to bypass an invalid token so that parsing may continue.
+        /// </summary>
+        public void Bypass()
+        {
+            if (this.tokenType == JsonTokenType.Invalid)
+            {
+                unsafe
+                {
+                    fixed (char* payloadPointer = this.payload)
+                    {
+                        this.PrepareForClose(payloadPointer, false);
+                    }
+                }
+
+                if (!this.close)
+                {
+                    this.position++;
+                }
+
+                this.tokenType = JsonTokenType.Bypass;
             }
         }
 
@@ -204,16 +255,17 @@ namespace Microsoft.Shared.Dna.Json
         public void Reset(string json)
         {
             this.close = false;
+            this.segmentCount = 0;
             this.decode = false;
             this.decodeBuffer.Clear();
+            this.segmentOffset = 0;
             this.payload = json ?? string.Empty;
             this.payloadLength = this.payload.Length;
             this.decodeBuffer.TryExpand(this.payloadLength);
             this.position = 0;
             this.scope.Clear();
             this.scope.Push(Container.Root);
-            this.TokenType = JsonTokenType.None;
-            this.TokenSegment = new StringSegment(this.payload, 0, 0);
+            this.tokenType = JsonTokenType.None;
         }
 
         /// <summary>
@@ -634,9 +686,10 @@ namespace Microsoft.Shared.Dna.Json
             Justification = "You don't have to use everything in an in-line code share.")]
         private void CreateCompleteToken()
         {
-            this.TokenSegment = new StringSegment(this.payload, 0, this.payloadLength);
-            this.TokenType = JsonTokenType.Complete;
+            this.tokenType = JsonTokenType.Complete;
+            this.segmentOffset = 0;
             this.position = this.payloadLength;
+            this.segmentCount = this.payloadLength;
             this.close = false;
         }
 
@@ -649,9 +702,9 @@ namespace Microsoft.Shared.Dna.Json
             Justification = "You don't have to use everything in an in-line code share.")]
         private void CreateInvalidToken()
         {
-            this.TokenSegment = new StringSegment(this.payload, this.position, 0);
-            this.TokenType = JsonTokenType.Invalid;
-            this.position = this.payloadLength;
+            this.segmentOffset = this.position;
+            this.segmentCount = 0;
+            this.tokenType = JsonTokenType.Invalid;
         }
 
         /// <summary>
@@ -673,8 +726,9 @@ namespace Microsoft.Shared.Dna.Json
             }
             else
             {
-                this.TokenSegment = new StringSegment(this.payload, this.position, count);
-                this.TokenType = type;
+                this.segmentOffset = this.position;
+                this.segmentCount = count;
+                this.tokenType = type;
                 this.position += count;
             }
         }
@@ -1037,7 +1091,6 @@ namespace Microsoft.Shared.Dna.Json
             Justification = "You don't have to use everything in an in-line code share.")]
         private unsafe void ReadBeginProperty(char* payloadPointer)
         {
-            this.scope.Push(new Container(JsonTokenType.BeginProperty, this.position));
             int cursor = this.EndOfString(payloadPointer);
             if (cursor > 0)
             {
@@ -1046,6 +1099,7 @@ namespace Microsoft.Shared.Dna.Json
                 if (c == JsonConstants.NameValueSeparator)
                 {
                     cursor++;
+                    this.scope.Push(new Container(JsonTokenType.BeginProperty, this.position));
                     this.CreateToken(cursor - this.position, JsonTokenType.BeginProperty);
                     return;
                 }
